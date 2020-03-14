@@ -10,9 +10,13 @@ from telegram.error import (TelegramError, Unauthorized, BadRequest,
 import datetime
 import urllib
 import logging
+import os
+import signal
 
 logging.basicConfig(
+    filename="log", filemode='a',
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt="%H:%M:%S",
     level=logging.INFO,
 )
 
@@ -35,7 +39,7 @@ Learn more at t.me/botfather
 
 IMAGE_DPI = 512
 API = f"https://latex.codecogs.com/png.latex?\\{IMAGE_DPI}dpi&space;%s"
-EXAMPLE_LATEX = r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"
+EXAMPLE_LATEX = r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"  # quadratic formula
 
 
 # UTIL
@@ -77,6 +81,7 @@ def handler(upd, ctx, kind="standard"):
     msg     = upd.message.text
     name    = upd.message.from_user.name
     log_msg = f"{dt_now()} :: {name}\t:: {msg}"
+    logging.info(log_msg)
     print(log_msg)
 
     if kind == "link": latex = msg.replace("/link","")
@@ -86,7 +91,7 @@ def handler(upd, ctx, kind="standard"):
     latex_url     = API % encoded_latex
 
     if   kind == "standard": caption = f"`{latex}`"
-    elif kind == "linked"  : caption = f"`{latex}`" + "\n" + latex_url
+    elif kind == "link"    : caption = f"`{latex}`" + "\n" + latex_url
 
     ctx.bot.send_photo(
         chat_id    = upd.effective_chat.id,
@@ -98,24 +103,37 @@ def handler(upd, ctx, kind="standard"):
 
 cb_link    = lambda upd, ctx: handler(upd, ctx, kind="link")
 cb_handler = lambda upd, ctx: handler(upd, ctx)
-cb_QUITBOT = lambda upd, ctx: quit()
+
+def cb_admin(upd, ctx):
+    msg     = upd.message.text
+    name    = upd.message.from_user.name
+    log_msg = f"{dt_now()} :: {name}\t:: {msg}"
+    print(log_msg)
+
+    username = upd.message.from_user.username
+    if username == "torresjrjr":
+        upd.message.reply_text(
+            "Admin authorised. Sending SIGINT...",
+            parse_mode=telegram.ParseMode.MARKDOWN,
+        )
+        os.kill(os.getpid(), signal.SIGINT)
 
 
 def cb_error(update, context):
     try:
         raise context.error
     except Unauthorized as e:
-        print("Error:", e)  # remove update.message.chat_id from conversation list
+        print("Unauthorized Error:", e)  # remove update.message.chat_id from conversation list
     except BadRequest as e:
-        print("Error:", e)  # handle malformed requests - read more below!
+        print("BadRequest Error:", e)  # handle malformed requests - read more below!
     except TimedOut as e:
-        print("Error:", e)  # handle slow connection problems
+        print("TimedOut Error:", e)  # handle slow connection problems
     except NetworkError as e:
-        print("Error:", e)  # handle other connection problems
+        print("NetworkError Error:", e)  # handle other connection problems
     except ChatMigrated as e:
-        print("Error:", e)  # the chat_id of a group has changed, use e.new_chat_id instead
+        print("ChatMigrated Error:", e)  # the chat_id of a group has changed, use e.new_chat_id instead
     except TelegramError as e:
-        print("Error:", e)  # handle all other telegram related errors
+        print("TelegramError Error:", e)  # handle all other telegram related errors
 
 
 # MAIN
@@ -130,7 +148,7 @@ def main():
     dp.add_handler(CommandHandler('start'     , cb_start))
     dp.add_handler(CommandHandler('help'      , cb_help))
     dp.add_handler(CommandHandler('link'      , cb_link))
-    dp.add_handler(CommandHandler('QUITBOT'   , cb_QUITBOT))
+    dp.add_handler(CommandHandler('admin'     , cb_admin))
     dp.add_handler(MessageHandler(Filters.text, cb_handler))
 
     print(dt_now(), "Serving...")
