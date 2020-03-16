@@ -12,6 +12,7 @@ import urllib
 import logging
 import os
 import signal
+import random
 
 logging.basicConfig(
     filename="log", filemode='a',
@@ -37,9 +38,11 @@ Learn more at t.me/botfather
 """ )
     quit()
 
-IMAGE_DPI = 512
-API = f"https://latex.codecogs.com/png.latex?\\{IMAGE_DPI}dpi&space;%s"
-EXAMPLE_LATEX = r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"  # quadratic formula
+IMAGE_TYPE = "png"
+IMAGE_DPI  = 512
+API = f"https://latex.codecogs.com/{IMAGE_TYPE}.latex?\\{IMAGE_DPI}dpi&space;%s"
+EXAMPLE_LATEX = r"\text{The quadratic formula} \\ " + "\n" + \
+                r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"
 
 
 # UTIL
@@ -47,12 +50,57 @@ EXAMPLE_LATEX = r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"  # quadratic formula
 # Returns a iso-formatted string of datetime at moment of call.
 dt_now = lambda: datetime.datetime.now().isoformat(timespec="seconds")
 
+def logger_dec(old_cb_func):
+
+    def new_cb_func(upd, ctx):
+        msg     = upd.message.text
+        name    = upd.message.from_user.name
+        log_msg = f"{dt_now()} :: {name}\t:: {msg}"
+        logging.info(log_msg)
+        print(log_msg)
+
+        return old_cb_func(upd, ctx)
+
+    return new_cb_func
+
+
+def get_random_example():
+    example_lines  = []
+    recording      = False
+
+    with open("examples.tex", 'r') as File:
+        line = next(File)
+        if not line.startswith("%TOTAL"):
+            raise Exception("No '%TOTAL N' on first line of examples.tex")
+        else:
+            total_examples = int( line.split()[1] )
+            example_number = random.randint(9, total_examples)
+            print("Example number", example_number)
+
+        for line in File:
+            print(line)
+            if line.startswith(f"%BEGIN {example_number}"):
+                recording = True
+                continue
+
+            if line.startswith("%END") and recording:
+                recording = False
+                break
+
+            if recording:
+                example_lines += [line]
+
+    example = ''.join(example_lines)
+    return example
+
 
 # CALLBACK HANDLERS
 
+@logger_dec
 def cb_start(upd, ctx):
     first_name = upd.message.from_user.first_name
-    out_msg = f"""Hello, {first_name}
+    out_msg = f"""\
+Hello, {first_name}
 Type some _LaTeX_ and this bot will return a rendered image of it.
 
 Use   /link _(with some LaTeX)_   to also return an image link.
@@ -64,6 +112,8 @@ Try the following:
 ```
 {EXAMPLE_LATEX}
 ```
+
+Or use /random for examples.
 
 Author: t.me/torresjrjr
 """
@@ -77,12 +127,26 @@ def cb_help(upd, ctx):
     cb_start(upd, ctx)
 
 
+@logger_dec
+def cb_random(upd, ctx):
+    latex = get_random_example()
+
+    encoded_latex = urllib.parse.quote(latex)
+    latex_url     = API % encoded_latex
+
+    caption = f"`{latex}`"
+
+    ctx.bot.send_photo(
+        chat_id    = upd.effective_chat.id,
+        photo      = latex_url,
+        caption    = caption,
+        parse_mode = telegram.ParseMode.MARKDOWN,
+    )
+
+
+@logger_dec
 def handler(upd, ctx, kind="standard"):
-    msg     = upd.message.text
-    name    = upd.message.from_user.name
-    log_msg = f"{dt_now()} :: {name}\t:: {msg}"
-    logging.info(log_msg)
-    print(log_msg)
+    msg = upd.message.text
 
     if kind == "link": latex = msg.replace("/link","")
     else             : latex = msg
@@ -91,7 +155,7 @@ def handler(upd, ctx, kind="standard"):
     latex_url     = API % encoded_latex
 
     if   kind == "standard": caption = f"`{latex}`"
-    elif kind == "link"    : caption = f"`{latex}`" + "\n" + latex_url
+    elif kind == "link"    : caption = f"`{latex}`\n" + latex_url
 
     ctx.bot.send_photo(
         chat_id    = upd.effective_chat.id,
@@ -104,6 +168,7 @@ def handler(upd, ctx, kind="standard"):
 cb_link    = lambda upd, ctx: handler(upd, ctx, kind="link")
 cb_handler = lambda upd, ctx: handler(upd, ctx)
 
+@logger_dec
 def cb_admin(upd, ctx):
     msg     = upd.message.text
     name    = upd.message.from_user.name
@@ -148,6 +213,7 @@ def main():
     dp.add_handler(CommandHandler('start'     , cb_start))
     dp.add_handler(CommandHandler('help'      , cb_help))
     dp.add_handler(CommandHandler('link'      , cb_link))
+    dp.add_handler(CommandHandler('random'    , cb_random))
     dp.add_handler(CommandHandler('admin'     , cb_admin))
     dp.add_handler(MessageHandler(Filters.text, cb_handler))
 
