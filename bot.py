@@ -78,7 +78,6 @@ def get_random_example():
             print("Example number", example_number)
 
         for line in File:
-            print(line)
             if line.startswith(f"%BEGIN {example_number}"):
                 recording = True
                 continue
