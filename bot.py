@@ -74,7 +74,7 @@ def get_random_example():
             raise Exception("No '%TOTAL N' on first line of examples.tex")
         else:
             total_examples = int( line.split()[1] )
-            example_number = random.randint(9, total_examples)
+            example_number = random.randint(1, total_examples)
             print("Example number", example_number)
 
         for line in File:
