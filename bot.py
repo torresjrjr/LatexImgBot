@@ -40,7 +40,7 @@ Learn more at t.me/botfather
 
 IMAGE_TYPE = "png"
 IMAGE_DPI  = "512"
-API = f"https://latex.codecogs.com/{IMAGE_TYPE}.latex?%5C{IMAGE_DPI}dpi%20%s"
+API = f"https://latex.codecogs.com/{IMAGE_TYPE}.latex?%%5C{IMAGE_DPI}dpi%%20%s"
 EXAMPLE_LATEX = r"\text{The quadratic formula} \\ " + "\n" + \
                 r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"
 
